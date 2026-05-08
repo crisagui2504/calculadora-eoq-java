@@ -8,9 +8,17 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JSeparator;
+import javax.swing.JScrollPane;
+import javax.swing.JScrollBar;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -25,28 +33,24 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.List;
 
-/**
- * Vista principal con apariencia de tablero empresarial.
- *
- * La pantalla separa claramente:
- * - Captura de datos en una barra lateral oscura.
- * - Indicadores EOQ en tarjetas amplias, contrastadas y faciles de leer.
- */
 public class EOQView extends JFrame {
 
-    private static final Color BG_DARK = new Color(14, 30, 48);
-    private static final Color SIDEBAR = new Color(15, 33, 51);
-    private static final Color CARD_BG = new Color(15, 33, 51);
-    private static final Color BORDER = new Color(30, 58, 82);
-    private static final Color GOLD = new Color(200, 149, 42);
-    private static final Color TEXT_MAIN = new Color(232, 241, 248);
-    private static final Color TEXT_MUTED = new Color(90, 126, 153);
-    private static final Color FIELD = new Color(47, 48, 45);
-    private static final Color BLUE = new Color(65, 151, 224);
-    private static final Color GREEN = new Color(48, 177, 141);
-    private static final Color PURPLE = new Color(137, 111, 226);
-    private static final Color STATUS_BG = new Color(12, 27, 46);
+    private static final Color BG_DARK = AppColors.BG_DARK;
+    private static final Color SIDEBAR = AppColors.SIDEBAR;
+    private static final Color CARD_BG = AppColors.CARD_BG;
+    private static final Color BORDER = AppColors.BORDER;
+    private static final Color GOLD = AppColors.GOLD;
+    private static final Color TEXT_MAIN = AppColors.TEXT_MAIN;
+    private static final Color TEXT_MUTED = AppColors.TEXT_MUTED;
+    private static final Color FIELD = AppColors.FIELD;
+    private static final Color BLUE = AppColors.BLUE;
+    private static final Color GREEN = AppColors.GREEN;
+    private static final Color PURPLE = AppColors.PURPLE;
+    private static final Color STATUS_BG = AppColors.STATUS_BG;
 
     private JTextField tfDemanda;
     private JTextField tfCostoPedido;
@@ -60,11 +64,16 @@ public class EOQView extends JFrame {
 
     private JButton btnCalcular;
     private JButton btnLimpiar;
+    private JButton btnExportarPDF;
+    private JButton btnExportar;
+    private JButton btnSensibilidad;
     private JButton btnDetalleQ;
     private JButton btnDetalleN;
     private JButton btnDetalleT;
     private JButton btnDetalleCT;
+
     private JLabel lblEstado;
+    private JTextArea taHistorial;
 
     public EOQView() {
         configurarVentana();
@@ -73,8 +82,8 @@ public class EOQView extends JFrame {
 
     private void configurarVentana() {
         setTitle("EOQ Manager - Analisis de Inventario");
-        setSize(1240, 820);
-        setMinimumSize(new Dimension(1100, 720));
+        setSize(1240, 860);
+        setMinimumSize(new Dimension(1120, 760));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(true);
@@ -82,7 +91,7 @@ public class EOQView extends JFrame {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {
-            // Si falla, Swing usara su apariencia por defecto.
+            // Swing usara su estilo por defecto si falla el Look & Feel.
         }
     }
 
@@ -94,13 +103,14 @@ public class EOQView extends JFrame {
         raiz.add(crearBarraEstado(), BorderLayout.SOUTH);
         setContentPane(raiz);
         setDetallesHabilitados(false);
+        activarEnterParaCalcular();
     }
 
     private JPanel crearBarraLateral() {
         JPanel barra = new GradientPanel(SIDEBAR, new Color(13, 29, 46));
-        barra.setPreferredSize(new Dimension(360, 720));
+        barra.setPreferredSize(new Dimension(400, 760));
         barra.setLayout(new BorderLayout(0, 18));
-        barra.setBorder(new EmptyBorder(28, 28, 28, 28));
+        barra.setBorder(new EmptyBorder(22, 28, 18, 28));
 
         JPanel superior = new JPanel();
         superior.setOpaque(false);
@@ -108,22 +118,28 @@ public class EOQView extends JFrame {
 
         JLabel titulo = new JLabel("EOQ Manager");
         titulo.setForeground(TEXT_MAIN);
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 31));
+        titulo.setFont(AppFonts.TITLE);
 
         JLabel subtitulo = new JLabel("<html>Planeacion de inventario, compras y costos operativos.</html>");
         subtitulo.setForeground(TEXT_MUTED);
         subtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        subtitulo.setBorder(new EmptyBorder(6, 0, 18, 0));
+        subtitulo.setBorder(new EmptyBorder(4, 0, 8, 0));
+
+        JSeparator separador = new JSeparator();
+        separador.setForeground(BORDER);
+        separador.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
 
         superior.add(titulo);
         superior.add(subtitulo);
+        superior.add(separador);
+        superior.add(Box.createVerticalStrut(12));
         superior.add(crearEtiquetaLateral("Datos de entrada"));
-        superior.add(Box.createVerticalStrut(14));
+        superior.add(Box.createVerticalStrut(10));
 
-        tfDemanda = crearCampoEntrada("4800");
-        tfCostoPedido = crearCampoEntrada("30");
-        tfCostoMantenimiento = crearCampoEntrada("8");
-        tfDias = crearCampoEntrada("240");
+        tfDemanda = crearCampoEntrada("4800", "D: unidades vendidas o consumidas por anio.");
+        tfCostoPedido = crearCampoEntrada("30", "Cp: costo de emitir una sola orden de compra.");
+        tfCostoMantenimiento = crearCampoEntrada("8", "Cm: costo anual de mantener una unidad en inventario.");
+        tfDias = crearCampoEntrada("240", "Dias habiles disponibles para reponer inventario.");
 
         superior.add(crearCampoConEtiqueta("Demanda anual (D)", "Unidades requeridas por anio", tfDemanda));
         superior.add(crearCampoConEtiqueta("Costo por pedido (Cp)", "Costo por emitir una orden", tfCostoPedido));
@@ -133,25 +149,99 @@ public class EOQView extends JFrame {
         JPanel inferior = new JPanel();
         inferior.setOpaque(false);
         inferior.setLayout(new BoxLayout(inferior, BoxLayout.Y_AXIS));
-
         inferior.add(crearFormulaBox());
-        inferior.add(Box.createVerticalStrut(18));
+        inferior.add(Box.createVerticalStrut(10));
 
         btnCalcular = crearBoton("Calcular EOQ", GOLD, BG_DARK, true);
         btnLimpiar = crearBoton("Limpiar tablero", new Color(26, 54, 78), TEXT_MAIN, false);
-        inferior.add(btnCalcular);
-        inferior.add(Box.createVerticalStrut(10));
-        inferior.add(btnLimpiar);
+        btnExportarPDF = crearBoton("Exportar PDF", new Color(82, 65, 130), TEXT_MAIN, false);
+        btnExportar = crearBoton("Exportar CSV", new Color(28, 78, 107), TEXT_MAIN, false);
+        btnSensibilidad = crearBoton("Analisis sensibilidad", new Color(32, 91, 77), TEXT_MAIN, false);
 
-        barra.add(superior, BorderLayout.CENTER);
+        inferior.add(btnCalcular);
+        inferior.add(Box.createVerticalStrut(7));
+        inferior.add(btnLimpiar);
+        inferior.add(Box.createVerticalStrut(7));
+        inferior.add(btnExportarPDF);
+        inferior.add(Box.createVerticalStrut(7));
+        inferior.add(btnExportar);
+        inferior.add(Box.createVerticalStrut(7));
+        inferior.add(btnSensibilidad);
+
+        JScrollPane scrollDatos = new JScrollPane(superior);
+        scrollDatos.setBorder(null);
+        scrollDatos.setOpaque(false);
+        scrollDatos.getViewport().setOpaque(false);
+        scrollDatos.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollDatos.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollDatos.getVerticalScrollBar().setUnitIncrement(14);
+        estilizarScrollBar(scrollDatos.getVerticalScrollBar());
+
+        barra.add(scrollDatos, BorderLayout.CENTER);
         barra.add(inferior, BorderLayout.SOUTH);
         return barra;
     }
 
+    private void estilizarScrollBar(JScrollBar scrollBar) {
+        scrollBar.setPreferredSize(new Dimension(10, 0));
+        scrollBar.setOpaque(false);
+        scrollBar.setBackground(SIDEBAR);
+        scrollBar.setUI(new BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = new Color(57, 101, 132);
+                this.trackColor = SIDEBAR;
+            }
+
+            @Override
+            protected JButton createDecreaseButton(int orientation) {
+                return crearBotonScrollInvisible();
+            }
+
+            @Override
+            protected JButton createIncreaseButton(int orientation) {
+                return crearBotonScrollInvisible();
+            }
+
+            @Override
+            protected void paintTrack(Graphics g, javax.swing.JComponent c, java.awt.Rectangle trackBounds) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(new Color(12, 27, 43));
+                g2.fillRoundRect(trackBounds.x + 2, trackBounds.y, trackBounds.width - 4, trackBounds.height, 8, 8);
+                g2.dispose();
+            }
+
+            @Override
+            protected void paintThumb(Graphics g, javax.swing.JComponent c, java.awt.Rectangle thumbBounds) {
+                if (!scrollBar.isEnabled() || thumbBounds.height <= 0) {
+                    return;
+                }
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(76, 135, 176));
+                g2.fillRoundRect(thumbBounds.x + 2, thumbBounds.y + 2, thumbBounds.width - 4, thumbBounds.height - 4, 8, 8);
+                g2.setColor(new Color(106, 168, 210));
+                g2.drawRoundRect(thumbBounds.x + 2, thumbBounds.y + 2, thumbBounds.width - 5, thumbBounds.height - 5, 8, 8);
+                g2.dispose();
+            }
+        });
+    }
+
+    private JButton crearBotonScrollInvisible() {
+        JButton boton = new JButton();
+        boton.setPreferredSize(new Dimension(0, 0));
+        boton.setMinimumSize(new Dimension(0, 0));
+        boton.setMaximumSize(new Dimension(0, 0));
+        boton.setOpaque(false);
+        boton.setContentAreaFilled(false);
+        boton.setBorderPainted(false);
+        return boton;
+    }
+
     private JPanel crearAreaResultados() {
-        JPanel area = new JPanel(new BorderLayout(0, 22));
+        JPanel area = new JPanel(new BorderLayout(0, 18));
         area.setBackground(BG_DARK);
-        area.setBorder(new EmptyBorder(28, 28, 28, 28));
+        area.setBorder(new EmptyBorder(28, 28, 20, 28));
 
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -200,8 +290,13 @@ public class EOQView extends JFrame {
         tarjetas.add(crearTarjetaResultado("Tiempo entre pedidos", "Intervalo recomendado", lblResultadoT, "dias", btnDetalleT, GOLD, "T"));
         tarjetas.add(crearTarjetaResultado("Costo total anual", "Costo relevante minimo", lblResultadoCT, "MXN", btnDetalleCT, PURPLE, "$"));
 
+        JPanel centro = new JPanel(new BorderLayout(0, 14));
+        centro.setOpaque(false);
+        centro.add(tarjetas, BorderLayout.CENTER);
+        centro.add(crearPanelHistorial(), BorderLayout.SOUTH);
+
         area.add(header, BorderLayout.NORTH);
-        area.add(tarjetas, BorderLayout.CENTER);
+        area.add(centro, BorderLayout.CENTER);
         return area;
     }
 
@@ -212,40 +307,31 @@ public class EOQView extends JFrame {
                                          JButton boton,
                                          Color acento,
                                          String icono) {
-        JPanel tarjeta = new MetricCard(acento, CARD_BG);
-        tarjeta.setLayout(new BorderLayout(0, 16));
-        tarjeta.setBorder(new EmptyBorder(32, 28, 24, 28));
+        MetricCard tarjeta = new MetricCard(acento, CARD_BG);
+        tarjeta.setLayout(new BorderLayout(0, 8));
+        tarjeta.setBorder(new EmptyBorder(22, 26, 18, 26));
 
         JPanel cabecera = new JPanel();
         cabecera.setOpaque(false);
         cabecera.setLayout(new BoxLayout(cabecera, BoxLayout.Y_AXIS));
-
-        JPanel textoCabecera = new JPanel();
-        textoCabecera.setOpaque(false);
-        textoCabecera.setLayout(new BoxLayout(textoCabecera, BoxLayout.Y_AXIS));
-
-        JLabel iconoLabel = crearIconoTarjeta(icono, acento);
+        cabecera.add(crearIconoTarjeta(icono, acento));
+        cabecera.add(Box.createVerticalStrut(10));
 
         JLabel lblTitulo = new JLabel(titulo);
         lblTitulo.setForeground(TEXT_MUTED);
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        cabecera.add(lblTitulo);
 
         JLabel lblSubtitulo = new JLabel(subtitulo);
         lblSubtitulo.setForeground(TEXT_MUTED);
         lblSubtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-
-        textoCabecera.add(iconoLabel);
-        textoCabecera.add(Box.createVerticalStrut(18));
-        textoCabecera.add(lblTitulo);
-        textoCabecera.add(Box.createVerticalStrut(8));
-        textoCabecera.add(lblSubtitulo);
-
-        cabecera.add(textoCabecera);
+        cabecera.add(Box.createVerticalStrut(7));
+        cabecera.add(lblSubtitulo);
 
         JPanel valorPanel = new JPanel();
         valorPanel.setOpaque(false);
         valorPanel.setLayout(new BoxLayout(valorPanel, BoxLayout.Y_AXIS));
-        valorPanel.setPreferredSize(new Dimension(250, 118));
+        valorPanel.setPreferredSize(new Dimension(260, 96));
         valorPanel.add(Box.createVerticalGlue());
         valor.setAlignmentX(JLabel.CENTER_ALIGNMENT);
         valorPanel.add(valor);
@@ -261,7 +347,46 @@ public class EOQView extends JFrame {
         tarjeta.add(cabecera, BorderLayout.NORTH);
         tarjeta.add(valorPanel, BorderLayout.CENTER);
         tarjeta.add(boton, BorderLayout.SOUTH);
+
+        tarjeta.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                tarjeta.setHovered(true);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                tarjeta.setHovered(false);
+            }
+        });
         return tarjeta;
+    }
+
+    private JPanel crearPanelHistorial() {
+        JPanel panel = new JPanel(new BorderLayout(0, 8));
+        panel.setBackground(CARD_BG);
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER),
+                new EmptyBorder(12, 14, 12, 14)
+        ));
+        panel.setPreferredSize(new Dimension(100, 112));
+
+        JLabel titulo = new JLabel("Historial de calculos recientes");
+        titulo.setForeground(TEXT_MAIN);
+        titulo.setFont(AppFonts.LABEL);
+
+        taHistorial = new JTextArea("Sin calculos recientes.");
+        taHistorial.setEditable(false);
+        taHistorial.setFocusable(false);
+        taHistorial.setOpaque(false);
+        taHistorial.setLineWrap(true);
+        taHistorial.setWrapStyleWord(true);
+        taHistorial.setForeground(TEXT_MUTED);
+        taHistorial.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+
+        panel.add(titulo, BorderLayout.NORTH);
+        panel.add(taHistorial, BorderLayout.CENTER);
+        return panel;
     }
 
     private JLabel crearIconoTarjeta(String texto, Color acento) {
@@ -275,7 +400,7 @@ public class EOQView extends JFrame {
     private JLabel crearEtiquetaLateral(String texto) {
         JLabel label = new JLabel(texto);
         label.setForeground(GOLD);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        label.setFont(AppFonts.SECTION);
         return label;
     }
 
@@ -283,15 +408,15 @@ public class EOQView extends JFrame {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(new EmptyBorder(0, 0, 13, 0));
+        panel.setBorder(new EmptyBorder(0, 0, 8, 0));
 
         JLabel label = new JLabel(etiqueta);
         label.setForeground(TEXT_MAIN);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        label.setFont(AppFonts.LABEL);
 
         JLabel help = new JLabel(ayuda);
         help.setForeground(TEXT_MUTED);
-        help.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        help.setFont(AppFonts.HELP);
 
         panel.add(label);
         panel.add(Box.createVerticalStrut(4));
@@ -301,18 +426,32 @@ public class EOQView extends JFrame {
         return panel;
     }
 
-    private JTextField crearCampoEntrada(String valor) {
+    private JTextField crearCampoEntrada(String valor, String tooltip) {
         JTextField campo = new JTextField(valor);
-        campo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-        campo.setPreferredSize(new Dimension(260, 42));
-        campo.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        campo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+        campo.setPreferredSize(new Dimension(260, 34));
+        campo.setFont(AppFonts.FIELD);
         campo.setForeground(TEXT_MAIN);
         campo.setBackground(FIELD);
         campo.setCaretColor(GOLD);
-        campo.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(90, 89, 81)),
-                new EmptyBorder(8, 11, 8, 11)
-        ));
+        campo.setToolTipText(tooltip);
+        aplicarBordeCampo(campo, BORDER);
+        campo.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                validarCampo(campo);
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                validarCampo(campo);
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                validarCampo(campo);
+            }
+        });
         return campo;
     }
 
@@ -323,7 +462,7 @@ public class EOQView extends JFrame {
                 BorderFactory.createLineBorder(new Color(74, 111, 143)),
                 new EmptyBorder(14, 14, 14, 14)
         ));
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 68));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
@@ -349,7 +488,7 @@ public class EOQView extends JFrame {
     private JLabel crearValorTarjeta() {
         JLabel label = new JLabel("--", JLabel.CENTER);
         label.setForeground(TEXT_MAIN);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 32));
         label.setHorizontalAlignment(JLabel.CENTER);
         label.setVerticalAlignment(JLabel.CENTER);
         return label;
@@ -358,8 +497,8 @@ public class EOQView extends JFrame {
     private JButton crearBoton(String texto, Color fondo, Color textoColor, boolean primario) {
         JButton boton = new JButton(texto);
         boton.setAlignmentX(JButton.CENTER_ALIGNMENT);
-        boton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-        boton.setPreferredSize(new Dimension(260, 44));
+        boton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        boton.setPreferredSize(new Dimension(260, 36));
         boton.setBackground(fondo);
         boton.setForeground(textoColor);
         boton.setOpaque(true);
@@ -381,8 +520,52 @@ public class EOQView extends JFrame {
         boton.setBorderPainted(false);
         boton.setFocusPainted(false);
         boton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        boton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        boton.setFont(AppFonts.BUTTON);
         return boton;
+    }
+
+    private void validarCampo(JTextField campo) {
+        String texto = campo.getText().trim();
+        boolean ok = true;
+        if (!texto.isEmpty()) {
+            try {
+                ok = Double.parseDouble(texto) > 0;
+            } catch (NumberFormatException ex) {
+                ok = false;
+            }
+        }
+        aplicarBordeCampo(campo, ok ? BORDER : AppColors.ERROR);
+    }
+
+    private void aplicarBordeCampo(JTextField campo, Color color) {
+        campo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(color),
+                new EmptyBorder(8, 11, 8, 11)
+        ));
+    }
+
+    private void animarValor(JLabel label, double objetivo, String prefijo, String sufijo) {
+        final int pasos = 30;
+        final int[] paso = {0};
+        Timer timer = new Timer(16, null);
+        timer.addActionListener(e -> {
+            paso[0]++;
+            double avance = Math.min(1.0, paso[0] / (double) pasos);
+            double valor = objetivo * avance;
+            label.setText(prefijo + formato(valor) + sufijo);
+            if (paso[0] >= pasos) {
+                label.setText(prefijo + formato(objetivo) + sufijo);
+                timer.stop();
+            }
+        });
+        timer.start();
+    }
+
+    private String formato(double numero) {
+        if (numero >= 1000) {
+            return String.format("%,.2f", numero);
+        }
+        return String.format("%.2f", numero);
     }
 
     public String getDemandaText() {
@@ -405,16 +588,32 @@ public class EOQView extends JFrame {
         lblResultadoQ.setText(valor);
     }
 
+    public void setResultadoQ(double valor) {
+        animarValor(lblResultadoQ, valor, "", "");
+    }
+
     public void setResultadoN(String valor) {
         lblResultadoN.setText(valor);
+    }
+
+    public void setResultadoN(double valor) {
+        animarValor(lblResultadoN, valor, "", "");
     }
 
     public void setResultadoT(String valor) {
         lblResultadoT.setText(valor);
     }
 
+    public void setResultadoT(double valor) {
+        animarValor(lblResultadoT, valor, "", "");
+    }
+
     public void setResultadoCT(String valor) {
         lblResultadoCT.setText(valor);
+    }
+
+    public void setResultadoCT(double valor) {
+        animarValor(lblResultadoCT, valor, "$", "");
     }
 
     public void setDetallesHabilitados(boolean habilitados) {
@@ -422,10 +621,25 @@ public class EOQView extends JFrame {
         btnDetalleN.setEnabled(habilitados);
         btnDetalleT.setEnabled(habilitados);
         btnDetalleCT.setEnabled(habilitados);
+        btnExportarPDF.setEnabled(habilitados);
+        btnExportar.setEnabled(habilitados);
+        btnSensibilidad.setEnabled(habilitados);
     }
 
     public void actualizarEstado(String texto) {
-        lblEstado.setText("  ●  " + texto);
+        lblEstado.setText("  *  " + texto);
+    }
+
+    public void actualizarHistorial(List<String> entradas) {
+        if (entradas.isEmpty()) {
+            taHistorial.setText("Sin calculos recientes.");
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String entrada : entradas) {
+            sb.append(entrada).append(System.lineSeparator());
+        }
+        taHistorial.setText(sb.toString());
     }
 
     public void limpiarResultados() {
@@ -448,7 +662,7 @@ public class EOQView extends JFrame {
         barra.setBackground(STATUS_BG);
         barra.setBorder(new EmptyBorder(0, 22, 0, 22));
 
-        lblEstado = new JLabel("  ●  Listo para calcular");
+        lblEstado = new JLabel("  *  Listo para calcular");
         lblEstado.setForeground(new Color(86, 207, 133));
         lblEstado.setFont(new Font("Segoe UI", Font.BOLD, 12));
         barra.add(lblEstado, BorderLayout.WEST);
@@ -461,6 +675,18 @@ public class EOQView extends JFrame {
 
     public void addLimpiarListener(ActionListener listener) {
         btnLimpiar.addActionListener(listener);
+    }
+
+    public void addExportarListener(ActionListener listener) {
+        btnExportar.addActionListener(listener);
+    }
+
+    public void addExportarPDFListener(ActionListener listener) {
+        btnExportarPDF.addActionListener(listener);
+    }
+
+    public void addSensibilidadListener(ActionListener listener) {
+        btnSensibilidad.addActionListener(listener);
     }
 
     public void addDetalleQListener(ActionListener listener) {
@@ -479,22 +705,16 @@ public class EOQView extends JFrame {
         btnDetalleCT.addActionListener(listener);
     }
 
+    public void activarEnterParaCalcular() {
+        getRootPane().setDefaultButton(btnCalcular);
+    }
+
     public void mostrarError(String mensaje) {
-        JOptionPane.showMessageDialog(
-                this,
-                mensaje,
-                "Error de entrada",
-                JOptionPane.ERROR_MESSAGE
-        );
+        JOptionPane.showMessageDialog(this, mensaje, "Error de entrada", JOptionPane.ERROR_MESSAGE);
     }
 
     public void mostrarInfo(String mensaje) {
-        JOptionPane.showMessageDialog(
-                this,
-                mensaje,
-                "Informacion",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+        JOptionPane.showMessageDialog(this, mensaje, "Informacion", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private static class GradientPanel extends JPanel {
@@ -519,6 +739,7 @@ public class EOQView extends JFrame {
     private static class MetricCard extends JPanel {
         private final Color accent;
         private final Color surface;
+        private boolean hovered;
 
         MetricCard(Color accent, Color surface) {
             this.accent = accent;
@@ -526,18 +747,31 @@ public class EOQView extends JFrame {
             setOpaque(false);
         }
 
+        void setHovered(boolean hovered) {
+            this.hovered = hovered;
+            repaint();
+        }
+
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(surface);
+            g2.setColor(hovered ? aclarar(surface, 14) : surface);
             g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
-            g2.setColor(BORDER);
+            g2.setColor(hovered ? accent : BORDER);
             g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
             g2.setColor(accent);
             g2.fillRect(0, 0, getWidth(), 3);
             g2.dispose();
             super.paintComponent(g);
+        }
+
+        private Color aclarar(Color color, int cantidad) {
+            return new Color(
+                    Math.min(255, color.getRed() + cantidad),
+                    Math.min(255, color.getGreen() + cantidad),
+                    Math.min(255, color.getBlue() + cantidad)
+            );
         }
     }
 

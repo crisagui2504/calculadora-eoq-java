@@ -117,6 +117,25 @@ public class EOQModel {
         return costoMantenimiento * (calcularQ() / 2.0);
     }
 
+    /**
+     * Calcula Q* variando el costo de pedido desde factorMin hasta factorMax.
+     */
+    public double[] calcularSensibilidadQ(double factorMin, double factorMax, int pasos) {
+        if (pasos < 2) {
+            throw new IllegalArgumentException("La sensibilidad requiere al menos 2 pasos.");
+        }
+        validarDatosCalculo();
+
+        double[] valores = new double[pasos];
+        double paso = (factorMax - factorMin) / (pasos - 1);
+
+        for (int i = 0; i < pasos; i++) {
+            double factor = factorMin + paso * i;
+            valores[i] = Math.sqrt((2.0 * demanda * costoPedido * factor) / costoMantenimiento);
+        }
+        return valores;
+    }
+
     private void invalidarCache() {
         qCache = -1.0;
     }

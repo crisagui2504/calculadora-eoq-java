@@ -2,18 +2,25 @@ package controller;
 
 import model.EOQModel;
 import view.EOQResultWindow;
+import view.EOQSensitivityWindow;
 import view.EOQView;
 
+import javax.swing.JFileChooser;
 import java.awt.Color;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
-/**
- * CONTROLADOR - Conecta la vista principal, el modelo matematico y las
- * ventanas visuales de detalle.
- */
 public class EOQController {
 
     private final EOQView vista;
     private final EOQModel modelo;
+    private final LinkedList<String> historial = new LinkedList<>();
 
     private double ultimoQ;
     private double ultimoN;
@@ -29,6 +36,9 @@ public class EOQController {
 
         vista.addCalcularListener(e -> calcular());
         vista.addLimpiarListener(e -> limpiar());
+        vista.addExportarPDFListener(e -> exportarPDF());
+        vista.addExportarListener(e -> exportarCSV());
+        vista.addSensibilidadListener(e -> abrirSensibilidad());
         vista.addDetalleQListener(e -> abrirDetalleQ());
         vista.addDetalleNListener(e -> abrirDetalleN());
         vista.addDetalleTListener(e -> abrirDetalleT());
@@ -42,8 +52,7 @@ public class EOQController {
             String txtCm = vista.getCostoMantenimientoText();
             String txtDias = vista.getDiasText();
 
-            if (txtD.isEmpty() || txtCp.isEmpty() ||
-                    txtCm.isEmpty() || txtDias.isEmpty()) {
+            if (txtD.isEmpty() || txtCp.isEmpty() || txtCm.isEmpty() || txtDias.isEmpty()) {
                 vista.mostrarError("Por favor, completa todos los campos.");
                 return;
             }
@@ -70,21 +79,19 @@ public class EOQController {
             ultimoCostoPedidos = modelo.calcularCostoPedidos();
             ultimoCostoMantenimiento = modelo.calcularCostoMantenimiento();
 
-            vista.setResultadoQ(formato(ultimoQ));
-            vista.setResultadoN(formato(ultimoN));
-            vista.setResultadoT(formato(ultimoT));
-            vista.setResultadoCT("$" + formato(ultimoCT));
+            vista.setResultadoQ(ultimoQ);
+            vista.setResultadoN(ultimoN);
+            vista.setResultadoT(ultimoT);
+            vista.setResultadoCT(ultimoCT);
             vista.setDetallesHabilitados(true);
-            vista.actualizarEstado("Cálculo completado · D=" + formato(d)
-                    + " · Cp=$" + formato(cp)
-                    + " · Cm=$" + formato(cm));
+            vista.actualizarEstado("Calculo completado - D=" + formato(d)
+                    + " - Cp=$" + formato(cp)
+                    + " - Cm=$" + formato(cm));
+            agregarHistorial();
             hayResultados = true;
 
         } catch (NumberFormatException ex) {
-            vista.mostrarError(
-                    "Entrada invalida.\n" +
-                            "Asegurate de ingresar solo numeros (usa punto para decimales)."
-            );
+            vista.mostrarError("Entrada invalida. Ingresa solo numeros y usa punto para decimales.");
         } catch (IllegalStateException ex) {
             vista.mostrarError(ex.getMessage());
         }
@@ -93,6 +100,75 @@ public class EOQController {
     private void limpiar() {
         hayResultados = false;
         vista.limpiarResultados();
+    }
+
+    private void exportarCSV() {
+        if (!validarResultados()) {
+            return;
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new java.io.File("resultados_eoq.csv"));
+        if (chooser.showSaveDialog(vista) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        try (PrintWriter pw = new PrintWriter(new FileWriter(chooser.getSelectedFile()))) {
+            pw.println("Indicador,Valor,Unidad");
+            pw.printf("Lote economico Q*,%s,unidades%n", formato(ultimoQ));
+            pw.printf("Pedidos al anio,%s,pedidos%n", formato(ultimoN));
+            pw.printf("Tiempo entre pedidos,%s,dias%n", formato(ultimoT));
+            pw.printf("Costo total anual,%s,MXN%n", formato(ultimoCT));
+            pw.println();
+            pw.println("Parametro,Valor");
+            pw.printf("Demanda anual,%s%n", formato(modelo.getDemanda()));
+            pw.printf("Costo por pedido,%s%n", formato(modelo.getCostoPedido()));
+            pw.printf("Costo mantenimiento,%s%n", formato(modelo.getCostoMantenimiento()));
+            pw.printf("Dias laborables,%s%n", formato(modelo.getDiasLaborables()));
+            vista.mostrarInfo("CSV exportado correctamente.");
+        } catch (IOException ex) {
+            vista.mostrarError("No se pudo exportar el archivo: " + ex.getMessage());
+        }
+    }
+
+    private void exportarPDF() {
+        if (!validarResultados()) {
+            return;
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new java.io.File("resultados_eoq.pdf"));
+        if (chooser.showSaveDialog(vista) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        List<String> lineas = List.of(
+                "Resultados EOQ",
+                "Lote economico Q*: " + formato(ultimoQ) + " unidades",
+                "Pedidos al anio: " + formato(ultimoN),
+                "Tiempo entre pedidos: " + formato(ultimoT) + " dias",
+                "Costo total anual: $" + formato(ultimoCT),
+                "",
+                "Parametros",
+                "Demanda anual: " + formato(modelo.getDemanda()),
+                "Costo por pedido: $" + formato(modelo.getCostoPedido()),
+                "Costo mantenimiento: $" + formato(modelo.getCostoMantenimiento()),
+                "Dias laborables: " + formato(modelo.getDiasLaborables())
+        );
+
+        try {
+            escribirPDFSimple(chooser.getSelectedFile(), lineas);
+            vista.mostrarInfo("PDF exportado correctamente.");
+        } catch (IOException ex) {
+            vista.mostrarError("No se pudo exportar el PDF: " + ex.getMessage());
+        }
+    }
+
+    private void abrirSensibilidad() {
+        if (!validarResultados()) {
+            return;
+        }
+        new EOQSensitivityWindow(modelo.calcularSensibilidadQ(0.5, 1.5, 9)).setVisible(true);
     }
 
     private void abrirDetalleQ() {
@@ -196,10 +272,21 @@ public class EOQController {
 
     private boolean validarResultados() {
         if (!hayResultados) {
-            vista.mostrarInfo("Primero calcula los resultados EOQ para abrir el detalle.");
+            vista.mostrarInfo("Primero calcula los resultados EOQ.");
             return false;
         }
         return true;
+    }
+
+    private void agregarHistorial() {
+        historial.addFirst("Q*=" + formato(ultimoQ)
+                + " | N=" + formato(ultimoN)
+                + " | T=" + formato(ultimoT)
+                + " | CT=$" + formato(ultimoCT));
+        if (historial.size() > 5) {
+            historial.removeLast();
+        }
+        vista.actualizarHistorial(List.copyOf(historial));
     }
 
     private String formato(double numero) {
@@ -207,5 +294,47 @@ public class EOQController {
             return String.format("%,.2f", numero);
         }
         return String.format("%.2f", numero);
+    }
+
+    private void escribirPDFSimple(java.io.File archivo, List<String> lineas) throws IOException {
+        StringBuilder contenido = new StringBuilder();
+        contenido.append("BT\n/F1 18 Tf\n72 760 Td\n");
+        for (int i = 0; i < lineas.size(); i++) {
+            if (i == 1) {
+                contenido.append("/F1 12 Tf\n");
+            }
+            contenido.append("(").append(escaparPDF(lineas.get(i))).append(") Tj\n0 -24 Td\n");
+        }
+        contenido.append("ET\n");
+
+        List<String> objetos = new ArrayList<>();
+        objetos.add("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+        objetos.add("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+        objetos.add("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n");
+        objetos.add("4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n");
+        objetos.add("5 0 obj\n<< /Length " + contenido.length() + " >>\nstream\n" + contenido + "endstream\nendobj\n");
+
+        StringBuilder pdf = new StringBuilder("%PDF-1.4\n");
+        List<Integer> offsets = new ArrayList<>();
+        for (String objeto : objetos) {
+            offsets.add(pdf.toString().getBytes(StandardCharsets.ISO_8859_1).length);
+            pdf.append(objeto);
+        }
+        int xref = pdf.toString().getBytes(StandardCharsets.ISO_8859_1).length;
+        pdf.append("xref\n0 ").append(objetos.size() + 1).append("\n");
+        pdf.append("0000000000 65535 f \n");
+        for (int offset : offsets) {
+            pdf.append(String.format("%010d 00000 n \n", offset));
+        }
+        pdf.append("trailer\n<< /Size ").append(objetos.size() + 1).append(" /Root 1 0 R >>\n");
+        pdf.append("startxref\n").append(xref).append("\n%%EOF");
+
+        try (FileOutputStream out = new FileOutputStream(archivo)) {
+            out.write(pdf.toString().getBytes(StandardCharsets.ISO_8859_1));
+        }
+    }
+
+    private String escaparPDF(String texto) {
+        return texto.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)");
     }
 }

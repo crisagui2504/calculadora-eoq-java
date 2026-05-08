@@ -32,11 +32,14 @@ public class EOQResultWindow extends JFrame {
         COSTO
     }
 
-    private static final Color FONDO = new Color(229, 235, 243);
-    private static final Color SUPERFICIE = new Color(252, 253, 255);
-    private static final Color TEXTO = new Color(20, 31, 44);
-    private static final Color TEXTO_SUAVE = new Color(82, 99, 117);
-    private static final Color LINEA = new Color(184, 198, 214);
+    private static final Color FONDO = AppColors.BG_DARK;
+    private static final Color SUPERFICIE = AppColors.CARD_BG;
+    private static final Color TEXTO = AppColors.TEXT_MAIN;
+    private static final Color TEXTO_SUAVE = AppColors.TEXT_MUTED;
+    private static final Color LINEA = AppColors.BORDER;
+    private static final Color CHART_TEXT = new Color(219, 232, 242);
+    private static final Color CHART_MUTED = new Color(133, 164, 190);
+    private static final Color CHART_AXIS = new Color(185, 205, 222);
 
     public EOQResultWindow(String titulo,
                            String subtitulo,
@@ -208,7 +211,7 @@ public class EOQResultWindow extends JFrame {
 
     private JPanel crearFormulaVisual(String formula) {
         JPanel panel = new JPanel(new BorderLayout(0, 8));
-        panel.setBackground(new Color(241, 246, 251));
+        panel.setBackground(new Color(18, 42, 64));
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(LINEA),
                 new EmptyBorder(14, 14, 14, 14)
@@ -219,7 +222,7 @@ public class EOQResultWindow extends JFrame {
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 14));
 
         JLabel lblFormula = new JLabel(formulaBonita(formula), JLabel.CENTER);
-        lblFormula.setForeground(new Color(37, 76, 112));
+        lblFormula.setForeground(AppColors.GOLD);
         lblFormula.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblFormula.setBorder(new EmptyBorder(6, 4, 4, 4));
 
@@ -247,7 +250,7 @@ public class EOQResultWindow extends JFrame {
 
     private JTextArea crearDato(String texto) {
         JTextArea label = crearTextoMultilinea(texto, TEXTO, Font.BOLD, 12);
-        label.setBackground(new Color(241, 246, 251));
+        label.setBackground(new Color(18, 42, 64));
         label.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(LINEA),
                 new EmptyBorder(10, 10, 10, 10)
@@ -260,23 +263,19 @@ public class EOQResultWindow extends JFrame {
         String titulo = partes.length > 1 ? partes[0].trim().toUpperCase() : "NOTA";
         String valor = partes.length > 1 ? partes[1].trim() : texto;
 
-        Color fondo = mezclar(Color.WHITE, acento, indice == 0 ? 0.12 : indice == 1 ? 0.16 : 0.20);
+        Color fondo = new Color(18, 42, 64);
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(fondo);
         panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(mezclar(new Color(160, 174, 190), acento, 0.45)),
+                BorderFactory.createLineBorder(mezclar(LINEA, acento, 0.45)),
                 new EmptyBorder(12, 12, 12, 12)
         ));
         panel.setMinimumSize(new Dimension(80, 112));
         panel.setPreferredSize(new Dimension(100, 112));
 
         JLabel lblTitulo = new JLabel(titulo);
-        lblTitulo.setForeground(new Color(
-                Math.max(35, acento.getRed() - 35),
-                Math.max(35, acento.getGreen() - 35),
-                Math.max(35, acento.getBlue() - 35)
-        ));
+        lblTitulo.setForeground(acento);
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -356,7 +355,7 @@ public class EOQResultWindow extends JFrame {
             this.referenciaA = referenciaA;
             this.referenciaB = referenciaB;
             this.unidad = unidad;
-            setBackground(new Color(248, 251, 255));
+            setBackground(AppColors.CARD_BG);
         }
 
         @Override
@@ -397,9 +396,9 @@ public class EOQResultWindow extends JFrame {
             g2.drawLine(cx, cy, x2, y2);
             g2.fillOval(cx - 6, cy - 6, 12, 12);
 
-            dibujarTextoCentrado(g2, "Cantidad optima por orden", cx, 32, 15, Font.BOLD, new Color(32, 44, 57));
+            dibujarTextoCentrado(g2, "Cantidad optima por orden", cx, 32, 15, Font.BOLD, CHART_TEXT);
             dibujarTextoCentrado(g2, formato(valor) + " " + unidad, cx, cy + radio + 32, 26, Font.BOLD, acento);
-            dibujarTextoCentrado(g2, "Punto recomendado de compra", cx, cy + radio + 58, 12, Font.PLAIN, new Color(95, 111, 128));
+            dibujarTextoCentrado(g2, "Punto recomendado de compra", cx, cy + radio + 58, 12, Font.PLAIN, CHART_MUTED);
         }
 
         private void dibujarPedidos(Graphics2D g2) {
@@ -416,7 +415,7 @@ public class EOQResultWindow extends JFrame {
             dibujarBarra(g2, left + 145, bottom, 58, (int) (barArea * valor / max), acento, "EOQ", formato(valor));
             dibujarBarra(g2, left + 245, bottom, 58, (int) (barArea * referenciaB / max), new Color(180, 195, 212), "Max", formato(referenciaB));
 
-            dibujarTextoCentrado(g2, "Comparacion de frecuencia anual", w / 2, 25, 16, Font.BOLD, new Color(32, 44, 57));
+            dibujarTextoCentrado(g2, "Comparacion de frecuencia anual", w / 2, 25, 16, Font.BOLD, CHART_TEXT);
         }
 
         private void dibujarTiempo(Graphics2D g2) {
@@ -435,15 +434,15 @@ public class EOQResultWindow extends JFrame {
                 int x = x1 + (x2 - x1) * i / pasos;
                 g2.setColor(i == 0 ? acento : new Color(180, 195, 212));
                 g2.fillOval(x - 9, y - 9, 18, 18);
-                dibujarTextoCentrado(g2, "Pedido", x, y - 28, 11, Font.BOLD, new Color(32, 44, 57));
+                dibujarTextoCentrado(g2, "Pedido", x, y - 28, 11, Font.BOLD, CHART_TEXT);
                 if (i < pasos) {
                     int medio = x + (x2 - x1) / pasos / 2;
-                    dibujarTextoCentrado(g2, formato(valor) + " dias", medio, y + 34, 12, Font.PLAIN, new Color(95, 111, 128));
+                    dibujarTextoCentrado(g2, formato(valor) + " dias", medio, y + 34, 12, Font.PLAIN, CHART_MUTED);
                 }
             }
 
-            dibujarTextoCentrado(g2, "Ritmo recomendado de reposicion", w / 2, 35, 16, Font.BOLD, new Color(32, 44, 57));
-            dibujarTextoCentrado(g2, "Cada intervalo representa el tiempo entre una orden y la siguiente.", w / 2, h - 24, 12, Font.PLAIN, new Color(95, 111, 128));
+            dibujarTextoCentrado(g2, "Ritmo recomendado de reposicion", w / 2, 35, 16, Font.BOLD, CHART_TEXT);
+            dibujarTextoCentrado(g2, "Cada intervalo representa el tiempo entre una orden y la siguiente.", w / 2, h - 24, 12, Font.PLAIN, CHART_MUTED);
         }
 
         private void dibujarCosto(Graphics2D g2) {
@@ -460,12 +459,12 @@ public class EOQResultWindow extends JFrame {
             dibujarBarra(g2, left + 155, bottom, 70, (int) (barArea * referenciaB / max), new Color(146, 94, 25), "Mantener", "$" + formato(referenciaB));
             dibujarBarra(g2, left + 270, bottom, 70, (int) (barArea * valor / max), acento, "Total", "$" + formato(valor));
 
-            dibujarTextoCentrado(g2, "Estructura del costo relevante anual", w / 2, 25, 16, Font.BOLD, new Color(32, 44, 57));
+            dibujarTextoCentrado(g2, "Estructura del costo relevante anual", w / 2, 25, 16, Font.BOLD, CHART_TEXT);
         }
 
         private void dibujarEjes(Graphics2D g2, int left, int top, int right, int bottom) {
             g2.setStroke(new BasicStroke(2f));
-            g2.setColor(new Color(218, 226, 236));
+            g2.setColor(CHART_AXIS);
             g2.drawLine(left, top, left, bottom);
             g2.drawLine(left, bottom, right, bottom);
         }
@@ -480,8 +479,8 @@ public class EOQResultWindow extends JFrame {
                                   String value) {
             g2.setColor(color);
             g2.fillRoundRect(x, bottom - height, width, height, 10, 10);
-            dibujarTextoCentrado(g2, value, x + width / 2, bottom - height - 10, 12, Font.BOLD, new Color(32, 44, 57));
-            dibujarTextoCentrado(g2, label, x + width / 2, bottom + 24, 12, Font.PLAIN, new Color(95, 111, 128));
+            dibujarTextoCentrado(g2, value, x + width / 2, bottom - height - 10, 12, Font.BOLD, CHART_TEXT);
+            dibujarTextoCentrado(g2, label, x + width / 2, bottom + 24, 12, Font.PLAIN, CHART_MUTED);
         }
 
         private void dibujarTextoCentrado(Graphics2D g2,
